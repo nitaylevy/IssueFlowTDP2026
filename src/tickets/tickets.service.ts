@@ -7,7 +7,7 @@ import { TicketStatus, TicketPriority, TicketType } from './enums/ticket.enums';
 import { ProjectsService } from '../projects/projects.service';
 import { UsersService } from '../users/users.service';
 import { Attachment } from './interfaces/attachment.interface';
-import { AuditLogsService } from 'src/audit-logs/audit-logs.service';
+import { AuditLogsService } from '@src/audit-logs/audit-logs.service';
 import { AuditAction, AuditEntityType, AuditActorType } from '../audit-logs/enums/audit.enums';
 import { UserRole } from '../users/dto/create-user.dto';
 
