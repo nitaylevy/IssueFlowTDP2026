@@ -1,10 +1,12 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
+import { CommentsModule } from '../comments/comments.module';
 
 @Module({
+  imports: [forwardRef(() => CommentsModule)],
   controllers: [UsersController],
   providers: [UsersService],
-  exports: [UsersService], // Exported so other modules (Tickets, Comments) can use it later
+  exports: [UsersService],
 })
 export class UsersModule {}

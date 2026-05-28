@@ -22,6 +22,7 @@ export class ProjectsService {
     const newProject: Project = {
       id: this.idCounter++,
       ...createProjectDto,
+      isDeleted: false,
     };
 
     this.projects.push(newProject);
@@ -29,15 +30,25 @@ export class ProjectsService {
   }
 
   findAll(): Project[] {
-    return this.projects;
+    // Hidden from standard responses
+    return this.projects.filter((p) => !p.isDeleted);
   }
 
   findOne(id: number): Project {
-    const project = this.projects.find((p) => p.id === id);
+    const project = this.projects.find((p) => p.id === id && !p.isDeleted);
     if (!project) {
       throw new NotFoundException(`Project with ID ${id} not found`);
     }
     return project;
+  }
+
+  delete(id: number): void {
+    const project = this.projects.find((p) => p.id === id && !p.isDeleted);
+    if (!project) {
+      throw new NotFoundException(`Project with ID ${id} not found`);
+    }
+    project.isDeleted = true; // Flagged as soft-deleted
+    return;
   }
 
   update(id: number, updateProjectDto: UpdateProjectDto): void {
@@ -49,15 +60,17 @@ export class ProjectsService {
     return;
   }
 
-  delete(id: number): void {
-    const projectIndex = this.projects.findIndex((p) => p.id === id);
-    if (projectIndex === -1) {
-      throw new NotFoundException(`Project with ID ${id} not found`);
-    }
+  findSoftDeleted(): Project[] {
+    return this.projects.filter((p) => p.isDeleted);
+  }
 
-    // In an in-memory implementation, we remove it. 
-    // If implementing real database soft-deletes later, you'd toggle a 'deletedAt' flag.
-    this.projects.splice(projectIndex, 1);
+  restore(id: number): void {
+    const project = this.projects.find((p) => p.id === id && p.isDeleted);
+    if (!project) {
+      throw new NotFoundException(`Soft-deleted project with ID ${id} not found.`);
+    }
+    project.isDeleted = false;
     return;
   }
+
 }

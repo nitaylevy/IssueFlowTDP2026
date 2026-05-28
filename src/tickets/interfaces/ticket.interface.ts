@@ -9,7 +9,9 @@ export interface Ticket {
   type: TicketType;
   projectId: number;
   assigneeId?: number;
-  dueDate: string;
+  dueDate?: string;
   isOverdue: boolean;
-  version: number; // For avoiding simultaneous multi-user updates
+  version: number;
+  isDeleted: boolean;
+  lastEscalatedAt?: string;
 }

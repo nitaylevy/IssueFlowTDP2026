@@ -1,9 +1,11 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { Comment, MentionedUserSummary } from './interfaces/comment.interface';
-import { CreateCommentDto } from './dto/create-comment.dto';
-import { UpdateCommentDto } from './dto/update-comment.dto';
+import { PaginatedMentionsResponse } from './interfaces/mention-response.interface';
+import { MentionQueryDto } from './dto/mention-query.dto';
 import { TicketsService } from '../tickets/tickets.service';
 import { UsersService } from '../users/users.service';
+import { CreateCommentDto } from './dto/create-comment.dto';
+import { UpdateCommentDto } from './dto/update-comment.dto';
 
 @Injectable()
 export class CommentsService {
@@ -15,7 +17,7 @@ export class CommentsService {
     private usersService: UsersService,
   ) {}
 
-  // Helper method to look for @usernames and map them to real system users
+  // Helper method to look for @usernames (Case-Insensitive matching enforced)
   private parseMentions(content: string): MentionedUserSummary[] {
     const mentionRegex = /@(\w+)/g;
     const matches = content.match(mentionRegex);
@@ -41,7 +43,6 @@ export class CommentsService {
   }
 
   create(ticketId: number, createCommentDto: CreateCommentDto): Comment {
-    // Ensure the ticket and author user exist
     this.ticketsService.findOne(ticketId);
     this.usersService.findOne(createCommentDto.authorId);
 
@@ -59,7 +60,7 @@ export class CommentsService {
   }
 
   findByTicket(ticketId: number): Comment[] {
-    this.ticketsService.findOne(ticketId); // Validate ticket exists first
+    this.ticketsService.findOne(ticketId);
     return this.comments.filter((c) => c.ticketId === ticketId);
   }
 
@@ -71,14 +72,10 @@ export class CommentsService {
       throw new NotFoundException(`Comment with ID ${commentId} not found on ticket ${ticketId}`);
     }
 
-    // Guard against simultaneous multi-user modifications
-    if (updateCommentDto.version && comment.version !== updateCommentDto.version) {
-      throw new ConflictException('This comment was modified by another user. Please try again.');
-    }
-
     comment.content = updateCommentDto.content;
+    // Feature: On comment update the mention list is completely re-evaluated automatically
     comment.mentionedUsers = this.parseMentions(updateCommentDto.content);
-    comment.version++; // Bump version lock tracking counter
+    comment.version++;
     
     return;
   }
@@ -92,6 +89,32 @@ export class CommentsService {
     }
 
     this.comments.splice(index, 1);
-    return;
+  }
+
+  findUserMentions(userId: number, query: MentionQueryDto): PaginatedMentionsResponse {
+    // Confirm the targeted target user exists
+    this.usersService.findOne(userId);
+
+    // 1. Filter: find matching mentions
+    // 2. Sort: Newest first (highest comment record ID first)
+    const matchingComments = this.comments
+      .filter((comment) => comment.mentionedUsers.some((u) => u.id === userId))
+      .sort((a, b) => b.id - a.id);
+
+    // Set fallback defaults for pagination handling parameters
+    const page = query.page ? parseInt(query.page, 10) : 1;
+    const pageSize = query.pageSize ? parseInt(query.pageSize, 10) : 10;
+    
+    // Calculate index slicing bounds
+    const startIndex = (page - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    
+    const paginatedData = matchingComments.slice(startIndex, endIndex);
+
+    return {
+      data: paginatedData,
+      total: matchingComments.length,
+      page: page,
+    };
   }
 }
